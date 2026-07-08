@@ -228,3 +228,50 @@ User ← Result (IDs, nicht Content)
 - Social Posts: Company vs. Personal Voice unterscheiden
 - Ads: Platform-spezifische Limits beachten
 - **Token-Limit beachten**: Große Daten in Convex, nicht im Context
+
+## Code-Karte
+
+**Zweck:** SEO/Content-Automatisierungsplattform (Artikel, Bodycam-Landingpages, Outreach) mit Convex-Backend und Inngest-Agentenpipeline.
+
+**Stack & Deploy:** React 18 + TypeScript + Vite (`vite.config.ts`), UI shadcn/ui + Tailwind, Auth Clerk, Datenbank Convex (`convex/`). Deploy auf Vercel (`vercel.json`, `.vercel/`), SPA-Rewrite auf `index.html`. `api/inngest.ts` ist der Vercel-Serverless-Endpoint für Inngest-Functions.
+
+**Entry Points:**
+- `src/main.tsx` — App-Bootstrap, wrappt mit `ConvexClientProvider`
+- `src/App.tsx` — Routing (React Router), alle Seiten hier verdrahtet
+- `src/providers/ConvexClientProvider.tsx` — Convex/Clerk-Setup
+- `api/inngest.ts` — Serverless-Handler, registriert alle Inngest-Functions
+- `src/inngest/client.ts` — Inngest-Client
+- `convex/schema.ts` — DB-Schema (Tiers: profiles/workspaces → projects → integrations → briefs → articles → brand → utility)
+
+**Ordner-Karte:**
+- `src/pages/` — Route-Pages (Dashboard, Articles, Briefs, Outreach, Bodycam*, Settings, Brand, Analytics)
+- `src/components/` — UI-Komponenten, gruppiert nach Domäne (articles, bodycam, briefs, outreach, settings, ui)
+- `src/hooks/` — u.a. `useWorkspaceConvex` (Workspace-Context)
+- `src/lib/` — Business-Logik + API-Clients (`src/lib/api/neuronwriter.ts`, `src/lib/outreach/`)
+- `src/inngest/` — Agenten-Pipeline: `agents/`, `functions/{core,growth,enterprise}/`, `workflows/`, `lib/` (siehe `ROUTER_ARCHITECTURE.md`)
+- `convex/tables/` — Query/Mutation-Module je Tabelle (articles, outreach*, bodycam, credits, gscConnections, ...)
+- `convex/actions/`, `convex/agents/`, `convex/lib/` — Server-Actions, Agent-Helper, Validatoren (`outreachValidators.ts`)
+- `automation/` — **Legacy** Node.js/Supabase-Automatisierung (`services/` WordPress, LLM, Supabase, `scripts/publishArticle.ts`); wird von Inngest-Pipeline abgelöst
+- `supabase/functions/` — Legacy Edge Functions (siehe `DEPLOYMENT.md`, Stand 05.01.2026)
+- `.claude/skills/` — Content-Skills (Router lädt nur `REGISTRY.json`-Summaries)
+- `scripts/` — CLI-Tools, u.a. `inngest-dev.ts` (lokaler Inngest-Dev-Server), `scripts/tests/run-all.ts`
+
+**Wo liegt was:**
+- Routen/Pages: `src/App.tsx` + `src/pages/*.tsx`
+- DB/Schema: `convex/schema.ts`, Tabellen-Logik in `convex/tables/*.ts`
+- Auth: Clerk-Setup in `src/providers/ConvexClientProvider.tsx`, Convex-Auth-Helper in `convex/auth.ts` + `convex/auth.config.ts`
+- Styles: `tailwind.config.ts`, `src/index.css`, `postcss.config.js`
+- Config/Env: `.env.local` / `.env.preview` / `.env.production` (Vite-Vars `VITE_*` für Clerk/Convex/Supabase), `vite.config.ts`, `tsconfig*.json`
+- API-Clients: `src/lib/api/neuronwriter.ts` (NeuronWriter SEO-API), `automation/src/services/WordPressService.ts` (Legacy WP-Publish)
+
+**Befehle:**
+- Dev: `npm run dev` (Vite, Port 8080), `npm run dev:inngest` (lokaler Inngest-Dev-Server)
+- Build: `npm run build` (Prod), `npm run build:dev`
+- Test: `npm run test` (`scripts/tests/run-all.ts`), im `automation/`-Unterprojekt eigenes Jest (`automation/jest.config.js`)
+- Lint: `npm run lint`
+- Deploy: über Vercel (`vercel.json`), Supabase-Functions separat via `supabase functions deploy <name>` (siehe `DEPLOYMENT.md`)
+
+**Fallen:**
+- Zwei parallele Backend-Pfade: `automation/` (Supabase, Legacy) vs. `src/inngest/` + `convex/` (aktueller Weg). Bei neuen Features `src/inngest/` nutzen, `automation/` nicht erweitern.
+- In `api/inngest.ts` sind `adCopyWriter`, `pressReleaseWriter`, `fullContentPipeline` absichtlich NICHT registriert (Stubs, ließen Jobs in der UI hängen).
+- Root-`package.json` und `automation/package.json` sind getrennte npm-Projekte mit eigenem `node_modules`.
