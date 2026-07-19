@@ -46,7 +46,8 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./automation
-        run: npm ci
+        # --legacy-peer-deps: claude-agent-sdk verlangt zod@4, openai@4 will zod@3 (peerOptional) — ERESOLVE seit 16.07.
+        run: npm ci --legacy-peer-deps
 
       - name: Build TypeScript
         working-directory: ./automation
